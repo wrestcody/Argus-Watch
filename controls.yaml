@@ -1,0 +1,35 @@
+controls:
+  - controlID: "AWS.RDS.1"
+    description: "RDS instances should have backups enabled."
+    severity: "High"
+    detection:
+      service: "rds"
+      listMethod: "describe_db_instances"
+      resourceIdentifier: "DBInstanceIdentifier"
+      evaluation:
+        type: "jmespath"
+        expression: "BackupRetentionPeriod > `0`"
+    remediation:
+      enabled: true
+      logic: "aws_rds_1_backup_policy"
+
+  - controlID: "AWS.S3.1"
+    description: "S3 buckets should have server-side encryption enabled."
+    severity: "Medium"
+    detection:
+      service: "s3"
+      listMethod: "list_buckets"
+      resourceIdentifier: "Name"
+      # Note: S3 requires a secondary call to get encryption status
+      subCall:
+        method: "get_bucket_encryption"
+        parameters:
+          - name: "Bucket"
+            source: "resourceIdentifier"
+      evaluation:
+        type: "jmespath"
+        # This expression checks for the existence of encryption rules
+        expression: "ServerSideEncryptionConfiguration.Rules"
+    remediation:
+      enabled: false
+      logic: "aws_s3_1_encryption_policy"

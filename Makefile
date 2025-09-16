@@ -4,10 +4,11 @@
 .PHONY: all package deploy destroy clean
 
 # Variables
-CHECK_RDS_LAMBDA_DIR = src/check_rds_backups
-CHECK_RDS_ZIP_FILE = check_rds_backups.zip
+DETECTION_ENGINE_DIR = src/detection_engine
+DETECTION_ENGINE_ZIP_FILE = detection_engine.zip
 REMEDIATION_LAMBDA_DIR = src/remediation_handler
 REMEDIATION_ZIP_FILE = remediation_handler.zip
+CONTROLS_FILE = controls.yaml
 POLICY_FILE = policies/remediation.rego
 
 all: package
@@ -19,11 +20,12 @@ all: package
 # to ensure a flat structure required by AWS Lambda.
 package: clean
 	@echo "Packaging Lambda functions..."
-	# Package check_rds_backups Lambda
-	mkdir -p $(CHECK_RDS_LAMBDA_DIR)/package
-	pip install --target $(CHECK_RDS_LAMBDA_DIR)/package -r $(CHECK_RDS_LAMBDA_DIR)/requirements.txt
-	cp $(CHECK_RDS_LAMBDA_DIR)/app.py $(CHECK_RDS_LAMBDA_DIR)/package/
-	cd $(CHECK_RDS_LAMBDA_DIR)/package && zip -r ../../../$(CHECK_RDS_ZIP_FILE) .
+	# Package detection_engine Lambda
+	mkdir -p $(DETECTION_ENGINE_DIR)/package
+	pip install --target $(DETECTION_ENGINE_DIR)/package -r $(DETECTION_ENGINE_DIR)/requirements.txt
+	cp $(DETECTION_ENGINE_DIR)/app.py $(DETECTION_ENGINE_DIR)/package/
+	cp $(CONTROLS_FILE) $(DETECTION_ENGINE_DIR)/package/controls.yaml
+	cd $(DETECTION_ENGINE_DIR)/package && zip -r ../../../$(DETECTION_ENGINE_ZIP_FILE) .
 
 	# Package remediation_handler Lambda
 	mkdir -p $(REMEDIATION_LAMBDA_DIR)/package
@@ -51,8 +53,8 @@ destroy:
 # Description: Removes all build artifacts and Terraform state.
 clean:
 	@echo "Cleaning up build artifacts and Terraform state..."
-	rm -f $(CHECK_RDS_ZIP_FILE) $(REMEDIATION_ZIP_FILE)
-	rm -rf $(CHECK_RDS_LAMBDA_DIR)/package
+	rm -f $(DETECTION_ENGINE_ZIP_FILE) $(REMEDIATION_ZIP_FILE)
+	rm -rf $(DETECTION_ENGINE_DIR)/package
 	rm -rf $(REMEDIATION_LAMBDA_DIR)/package
 	rm -rf .terraform* terraform/*.tfstate* terraform/.terraform
 	@echo "Cleanup complete."
