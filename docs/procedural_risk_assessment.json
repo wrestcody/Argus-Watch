@@ -1,0 +1,90 @@
+{
+  "organizationName": "Argus-Watch Open Source Project",
+  "version": "1.0.0",
+  "assessmentProcedure": {
+    "riskMatrix": {
+      "Critical": {
+        "description": "Poses an immediate and severe threat to critical business operations, data integrity, or regulatory compliance. Likely to result in significant financial loss, reputational damage, or legal penalties.",
+        "scoreRange": "9.0-10.0"
+      },
+      "High": {
+        "description": "Poses a significant threat that could disrupt business operations or lead to data exposure. Requires prompt attention to mitigate potential damage.",
+        "scoreRange": "7.0-8.9"
+      },
+      "Medium": {
+        "description": "Represents a moderate threat that could lead to minor disruptions or inefficiencies. Should be addressed as part of regular maintenance cycles.",
+        "scoreRange": "4.0-6.9"
+      },
+      "Low": {
+        "description": "A minor issue that deviates from best practices but has a low probability of being exploited or causing any material impact.",
+        "scoreRange": "0.1-3.9"
+      },
+      "Informational": {
+        "description": "An observation that does not pose a direct risk but is noteworthy for situational awareness or future planning.",
+        "scoreRange": "0.0"
+      }
+    },
+    "businessImpactMap": {
+      "tags": {
+        "data_classification:confidential": {
+          "impact": "High",
+          "notes": "Contains sensitive customer PII or financial data."
+        },
+        "data_classification:internal": {
+          "impact": "Medium",
+          "notes": "Contains proprietary but non-sensitive business data."
+        },
+        "application_tier:critical": {
+          "impact": "Critical",
+          "notes": "Core production application essential for revenue or operations."
+        },
+        "cost_center:prod": {
+            "impact": "High",
+            "notes": "Production environment resource."
+        }
+      }
+    },
+    "compensatingControls": [
+      {
+        "controlId": "CC-001",
+        "title": "Private Subnet Isolation",
+        "description": "All production subnets are private and egress is filtered through a firewall, reducing the immediate risk of data exfiltration for unencrypted resources.",
+        "appliesTo": {
+          "tags": {
+            "environment": "production"
+          }
+        }
+      },
+      {
+        "controlId": "CC-002",
+        "title": "Vulnerability Management Program",
+        "description": "All production hosts are scanned for vulnerabilities weekly. High and Critical vulnerabilities are patched within 14 days.",
+        "appliesTo": {
+          "resourceType": "AWS::EC2::Instance"
+        }
+      }
+    ],
+    "responsePlaybooks": {
+      "RDS_BACKUP_DISABLED": {
+        "initialResponseTitle": "Investigate Disabled RDS Backups",
+        "steps": [
+          "1. Verify if the instance is a production resource by checking its tags.",
+          "2. If production, immediately enable automated backups with a 7-day retention period.",
+          "3. If non-production, contact the resource owner to confirm if the disabled backups are intentional.",
+          "4. Create a Jira ticket to track the remediation and assign it to the database team."
+        ],
+        "recommendedSeverity": "High"
+      },
+      "DEFAULT": {
+        "initialResponseTitle": "General Security Finding",
+        "steps": [
+          "1. Identify the resource owner using the 'owner' tag.",
+          "2. Notify the resource owner via Slack about the finding.",
+          "3. Request remediation within the standard SLA (30 days for Medium, 90 days for Low).",
+          "4. Create a Jira ticket for tracking."
+        ],
+        "recommendedSeverity": "Medium"
+      }
+    }
+  }
+}

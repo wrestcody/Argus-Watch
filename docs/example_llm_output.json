@@ -1,0 +1,12 @@
+{
+  "assessedRisk": "The finding indicates that the RDS instance 'db-prod-user-data-01' does not have automated backups enabled. This is a significant security and operational risk, as it prevents Point-in-Time Recovery (PITR), making it impossible to recover from data corruption or accidental deletion events beyond the last manual snapshot. According to the `risk_procedure_json`, resources tagged with `application_tier:critical` are considered to have a critical business impact. While this finding is inherently high risk, the immediate threat of data exfiltration is mitigated by the compensating control 'CC-001', which states that all production subnets are private and egress is filtered. However, the risk of data loss remains unmitigated.",
+  "severity": "High",
+  "rationale": "The severity is assessed as 'High' instead of 'Critical' due to a specific compensating control. The finding's description for 'RDS_BACKUP_DISABLED' recommends a 'High' severity. While the resource is tagged as 'application_tier:critical', the procedural document's compensating control 'CC-001' (Private Subnet Isolation) reduces the risk of direct external attack, though not the risk of data loss from operational errors. Therefore, 'High' is appropriate.",
+  "recommendedActions": [
+    "Immediately enable automated backups on the 'db-prod-user-data-01' RDS instance.",
+    "Set the backup retention period to a minimum of 7 days, or 35 days if the data is subject to regulatory compliance.",
+    "Verify that a successful automated snapshot has been created after enabling the feature.",
+    "Contact the database owner to confirm the appropriate backup window and retention period for this critical application."
+  ],
+  "tuningSuggestion": "No tuning is recommended for this finding type when associated with a 'critical' application tier. The risk of data loss on a critical system is always significant. However, if this same finding occurs on a resource tagged 'env:dev', consider downgrading the severity to 'Medium'."
+}
