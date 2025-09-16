@@ -13,10 +13,10 @@ provider "aws" {
 # Data sources for packaging the Lambda functions
 # -----------------------------------------------------------------------------
 
-data "archive_file" "lambda_zip" {
+data "archive_file" "detection_engine_zip" {
   type        = "zip"
-  source_dir  = "../src/check_rds_backups"
-  output_path = "check_rds_backups.zip"
+  source_dir  = "../src/detection_engine"
+  output_path = "detection_engine.zip"
 }
 
 data "archive_file" "remediation_lambda_zip" {
@@ -65,11 +65,11 @@ resource "aws_sqs_queue_policy" "findings_queue_policy" {
 }
 
 # -----------------------------------------------------------------------------
-# IAM Role and Lambda for Detection (check_rds_backups)
+# IAM Role and Lambda for the Detection Engine
 # -----------------------------------------------------------------------------
 
-resource "aws_iam_role" "lambda_exec_role" {
-  name = "argus-watch-lambda-role"
+resource "aws_iam_role" "detection_engine_role" {
+  name = "argus-watch-detection-engine-role"
   assume_role_policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [{
@@ -80,17 +80,20 @@ resource "aws_iam_role" "lambda_exec_role" {
   })
 }
 
-resource "aws_iam_role_policy" "lambda_permissions" {
-  name = "argus-watch-lambda-permissions"
-  role = aws_iam_role.lambda_exec_role.id
+# In a production environment, this should be a custom, fine-grained policy
+# with the exact read-only permissions required by the controls in controls.yaml.
+# For this PoC refactor, we are using the AWS managed ReadOnlyAccess policy for simplicity.
+resource "aws_iam_role_policy_attachment" "detection_engine_readonly_access" {
+  role       = aws_iam_role.detection_engine_role.name
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
+resource "aws_iam_role_policy" "detection_engine_sns_publish" {
+  name = "argus-watch-detection-engine-sns-publish"
+  role = aws_iam_role.detection_engine_role.id
   policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [
-      {
-        Action   = ["rds:DescribeDBInstances"],
-        Effect   = "Allow",
-        Resource = "*"
-      },
       {
         Action   = "sns:Publish",
         Effect   = "Allow",
@@ -105,14 +108,14 @@ resource "aws_iam_role_policy" "lambda_permissions" {
   })
 }
 
-resource "aws_lambda_function" "check_rds_backups_lambda" {
-  function_name    = "argus-watch-check-rds-backups"
-  role             = aws_iam_role.lambda_exec_role.arn
+resource "aws_lambda_function" "detection_engine_lambda" {
+  function_name    = "argus-watch-detection-engine"
+  role             = aws_iam_role.detection_engine_role.arn
   handler          = "app.lambda_handler"
   runtime          = "python3.12"
-  timeout          = 60
-  filename         = data.archive_file.lambda_zip.output_path
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  timeout          = 300 # Increased timeout for potentially long-running scans
+  filename         = data.archive_file.detection_engine_zip.output_path
+  source_code_hash = data.archive_file.detection_engine_zip.output_base64sha256
   environment {
     variables = {
       SNS_TOPIC_ARN = aws_sns_topic.findings_topic.arn
@@ -126,21 +129,21 @@ resource "aws_lambda_function" "check_rds_backups_lambda" {
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_event_rule" "daily_trigger" {
-  name                = "argus-watch-daily-rds-check"
-  description         = "Triggers the Argus-Watch RDS backup check daily."
+  name                = "argus-watch-daily-scan"
+  description         = "Triggers the Argus-Watch detection engine daily."
   schedule_expression = "rate(1 day)"
 }
 
 resource "aws_cloudwatch_event_target" "lambda_target" {
   rule      = aws_cloudwatch_event_rule.daily_trigger.name
-  target_id = "TriggerLambda"
-  arn       = aws_lambda_function.check_rds_backups_lambda.arn
+  target_id = "TriggerDetectionEngine"
+  arn       = aws_lambda_function.detection_engine_lambda.arn
 }
 
 resource "aws_lambda_permission" "allow_eventbridge" {
   statement_id  = "AllowExecutionFromEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.check_rds_backups_lambda.function_name
+  function_name = aws_lambda_function.detection_engine_lambda.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.daily_trigger.arn
 }
@@ -173,7 +176,10 @@ resource "aws_iam_role_policy" "remediation_lambda_permissions" {
     Version   = "2012-10-17",
     Statement = [
       {
-        Action   = ["rds:ModifyDBInstance"],
+        Action = [
+          "rds:ModifyDBInstance",
+          "s3:PutBucketEncryption"
+        ],
         Effect   = "Allow",
         Resource = "*" # In production, this should be scoped down to specific resource ARNs if possible.
       },
