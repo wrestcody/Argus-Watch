@@ -1,0 +1,33 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.hypothesis/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Terraform artifacts
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+*.tfplan
+*.tfr
+*.zip
+
+# IDE / Editor specific
+.idea/
+.vscode/
+*.swp
+*~
