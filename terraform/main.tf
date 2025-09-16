@@ -24,6 +24,42 @@ resource "aws_sns_topic" "findings_topic" {
 }
 
 # -----------------------------------------------------------------------------
+# SQS Queue for Decoupling
+# -----------------------------------------------------------------------------
+
+resource "aws_sqs_queue" "findings_queue" {
+  name = "argus-watch-findings-queue"
+}
+
+resource "aws_sns_topic_subscription" "findings_queue_subscription" {
+  topic_arn = aws_sns_topic.findings_topic.arn
+  protocol  = "sqs"
+  endpoint  = aws_sqs_queue.findings_queue.arn
+}
+
+resource "aws_sqs_queue_policy" "findings_queue_policy" {
+  queue_url = aws_sqs_queue.findings_queue.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect    = "Allow",
+      Principal = {
+        Service = "sns.amazonaws.com"
+      },
+      Action    = "sqs:SendMessage",
+      Resource  = aws_sqs_queue.findings_queue.arn,
+      Condition = {
+        ArnEquals = {
+          "aws:SourceArn" = aws_sns_topic.findings_topic.arn
+        }
+      }
+    }]
+  })
+}
+
+
+# -----------------------------------------------------------------------------
 # IAM Role and Policy for the Lambda Function
 # -----------------------------------------------------------------------------
 
